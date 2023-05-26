@@ -1,6 +1,6 @@
 {
   "name": "@microprocess/wapi-store",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Minimal Baileys data storage for your favorite DBMS built with Prisma",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format": "prettier . --write"
   },
   "devDependencies": {
-    "@adiwajshing/baileys": "github:WhiskeySockets/Baileys",
+    "@adiwajshing/baileys": "https://github.com/WhiskeySockets/Baileys",
     "@prisma/client": "^4.7.1",
     "@types/node": "^18.11.10",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
