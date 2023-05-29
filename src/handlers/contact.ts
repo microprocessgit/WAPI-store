@@ -18,22 +18,20 @@ export default function contactHandler(sessionId: string, event: BaileysEventEmi
           where: { id: { notIn: contactIds }, sessionId },
         })
       ).map((c) => c.id);
-
-      const upsertPromises = contacts
-        .map((c) => transformPrisma(c))
-        .map((data) =>
-          prisma.contact.upsert({
-            select: { pkId: true },
-            create: { ...data, sessionId },
-            update: data,
-            where: { sessionId_id: { id: data.id, sessionId } },
-          })
-        );
-
-      await Promise.any([
-        ...upsertPromises,
-        prisma.contact.deleteMany({ where: { id: { in: deletedOldContactIds }, sessionId } }),
-      ]);
+      if (!deletedOldContactIds) {
+        contacts
+          .map((c) => transformPrisma(c))
+          .map((data) =>
+            prisma.contact.upsert({
+              select: { pkId: true },
+              create: { ...data, sessionId },
+              update: data,
+              where: { sessionId_id: { id: data.id, sessionId } },
+            })
+          );
+      } else {
+        prisma.contact.deleteMany({ where: { id: { in: deletedOldContactIds }, sessionId } })
+      }
       logger.info(
         { deletedContacts: deletedOldContactIds.length, newContacts: contacts.length },
         'Synced contacts'
@@ -65,15 +63,22 @@ export default function contactHandler(sessionId: string, event: BaileysEventEmi
   const update: BaileysEventHandler<'contacts.update'> = async (updates) => {
     for (const update of updates) {
       try {
-        await prisma.contact.update({
-          select: { pkId: true },
-          data: transformPrisma(update),
-          where: { sessionId_id: { id: update.id!, sessionId } },
-        });
-      } catch (e) {
-        if (e instanceof PrismaClientKnownRequestError && e.code === 'P2025') {
-          return logger.info({ update }, 'Got update for non existent contact');
+        const contactExists = (await prisma.contact.count({ where: { id: update.id } })) > 0;
+        if (!contactExists) {
+          upsert([
+            {
+              id: update.id!
+            }
+          ])
+        } else {
+          await prisma.contact.update({
+            select: { pkId: true },
+            data: transformPrisma(update),
+            where: { sessionId_id: { id: update.id!, sessionId } },
+          });
         }
+
+      } catch (e) {
         logger.error(e, 'An error occured during contact update');
       }
     }

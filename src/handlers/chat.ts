@@ -58,23 +58,31 @@ export default function chatHandler(sessionId: string, event: BaileysEventEmitte
     for (const update of updates) {
       try {
         const data = transformPrisma(update);
-        await prisma.chat.update({
-          select: { pkId: true },
-          data: {
-            ...data,
-            unreadCount:
-              typeof data.unreadCount === 'number'
-                ? data.unreadCount > 0
-                  ? { increment: data.unreadCount }
-                  : { set: data.unreadCount }
-                : undefined,
-          },
-          where: { sessionId_id: { id: update.id!, sessionId } },
-        });
-      } catch (e) {
-        if (e instanceof PrismaClientKnownRequestError && e.code === 'P2025') {
-          return logger.info({ update }, 'Got update for non existent chat');
+
+        const chatExists = (await prisma.chat.count({ where: { id: data.id, sessionId } })) > 0;
+        if (!chatExists) {
+          upsert([
+            {
+              id: data.id!,
+              conversationTimestamp: data.conversationTimestamp,
+              unreadCount: 1,
+            }]);
+        } else {
+          await prisma.chat.update({
+            select: { pkId: true },
+            data: {
+              ...data,
+              unreadCount:
+                typeof data.unreadCount === 'number'
+                  ? data.unreadCount > 0
+                    ? { increment: data.unreadCount }
+                    : { set: data.unreadCount }
+                  : undefined,
+            },
+            where: { sessionId_id: { id: update.id!, sessionId } },
+          });
         }
+      } catch (e) {
         logger.error(e, 'An error occured during chat update');
       }
     }

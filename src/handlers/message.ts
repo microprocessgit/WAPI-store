@@ -52,17 +52,6 @@ export default function messageHandler(sessionId: string, event: BaileysEventEmi
               update: { ...data },
               where: { sessionId_remoteJid_id: { remoteJid: jid, id: message.key.id!, sessionId } },
             });
-
-            const chatExists = (await prisma.chat.count({ where: { id: jid, sessionId } })) > 0;
-            if (type === 'notify' && !chatExists) {
-              event.emit('chats.upsert', [
-                {
-                  id: jid,
-                  conversationTimestamp: toNumber(message.messageTimestamp),
-                  unreadCount: 1,
-                },
-              ]);
-            }
           } catch (e) {
             logger.error(e, 'An error occured during message upsert');
           }
@@ -95,16 +84,32 @@ export default function messageHandler(sessionId: string, event: BaileysEventEmi
               },
             });
           }
-          await tx.message.create({
-            select: { pkId: true },
-            data: {
-              ...transformPrisma(data),
-              id: data.key.id!,
-              remoteJid: data.key.remoteJid!,
-              sessionId,
-            },
-          });
+
+          if (!prevData) {
+            await tx.message.create({
+              select: { pkId: true },
+              data: {
+                ...transformPrisma(data),
+                id: data.key.id!,
+                remoteJid: data.key.remoteJid!,
+                sessionId,
+              },
+            });
+          } else {
+            await tx.message.update({
+              select: { pkId: true },
+              data: { ...transformPrisma(data) },
+              where: {
+                sessionId_remoteJid_id: {
+                  id: key.id!,
+                  remoteJid: key.remoteJid!,
+                  sessionId,
+                }
+              }
+            });
+          }
         });
+
       } catch (e) {
         logger.error(e, 'An error occured during message update');
       }
