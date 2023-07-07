@@ -1,4 +1,4 @@
-import type { BaileysEventEmitter } from '@adiwajshing/baileys';
+import type { BaileysEventEmitter } from '@whiskeysockets/baileys';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { useLogger, usePrisma } from '../shared';
 import type { BaileysEventHandler } from '../types';
@@ -63,7 +63,7 @@ export default function contactHandler(sessionId: string, event: BaileysEventEmi
   const update: BaileysEventHandler<'contacts.update'> = async (updates) => {
     for (const update of updates) {
       try {
-        const contactExists = (await prisma.contact.count({ where: { id: update.id } })) > 0;
+        const contactExists = (await prisma.contact.count({ where: { id: update.id,  sessionId:sessionId} })) > 0;
         if (!contactExists) {
           upsert([
             {
